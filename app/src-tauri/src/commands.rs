@@ -24,6 +24,8 @@ pub struct SettingsView {
     has_permanent_password: bool,
     trusted_devices: Vec<TrustedDevice>,
     language: String,
+    default_server_address: &'static str,
+    default_server_key: &'static str,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -70,6 +72,8 @@ fn overview(state: &AppState) -> Overview {
             has_permanent_password: config.permanent_password.is_some(),
             trusted_devices,
             language: config.language.clone(),
+            default_server_address: crate::config::DEFAULT_SERVER_ADDRESS,
+            default_server_key: crate::config::DEFAULT_SERVER_KEY,
         },
         platform: platform(),
     }

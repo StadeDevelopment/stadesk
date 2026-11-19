@@ -11,6 +11,7 @@ import {
   type UiError,
 } from "./api";
 import { useErrorText, useT } from "./i18n";
+import { BrandMark, Icon, type IconName } from "./icons";
 
 type Props = { overview: Overview; onOverview: (overview: Overview) => void };
 
@@ -19,70 +20,110 @@ function useCopy() {
   const copy = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
+      window.setTimeout(() => setCopied(false), 1800);
     });
   };
   return { copied, copy };
 }
 
-function StatusLine({ status }: { status: HostStatus }) {
+function statusText(status: HostStatus, t: ReturnType<typeof useT>) {
+  switch (status.state) {
+    case "online":
+      return t("statusOnline");
+    case "connecting":
+      return t("statusConnecting");
+    case "offline":
+      return t("statusOffline", { reason: status.reason });
+    default:
+      return t("statusNotConfigured");
+  }
+}
+
+function CopyCard({
+  icon,
+  title,
+  value,
+  action,
+}: {
+  icon: IconName;
+  title: string;
+  value: string;
+  action?: { label: string; onClick: () => void };
+}) {
   const t = useT();
-  const text =
-    status.state === "online"
-      ? t("statusOnline")
-      : status.state === "connecting"
-        ? t("statusConnecting")
-        : status.state === "offline"
-          ? t("statusOffline", { reason: status.reason })
-          : t("statusNotConfigured");
+  const { copied, copy } = useCopy();
   return (
-    <p className={`status status-${status.state}`}>
-      <span className="dot" />
-      {text}
-    </p>
+    <div className="id-card">
+      <button type="button" className="id-card-main" onClick={() => copy(value)} title={t("copy")}>
+        <Icon name={copied ? "check" : icon} />
+        <span className="id-card-text">
+          <span className="label-small">{copied ? t("copied") : title}</span>
+          <span className="id-card-value mono">{value}</span>
+        </span>
+      </button>
+      {action && (
+        <button type="button" className="id-card-action" onClick={action.onClick} title={action.label} aria-label={action.label}>
+          <Icon name="refresh" />
+        </button>
+      )}
+    </div>
   );
 }
 
-function ThisDevice({ overview, onOverview }: Props) {
+function Sidebar({
+  overview,
+  onOverview,
+  settingsOpen,
+  onToggleSettings,
+}: Props & { settingsOpen: boolean; onToggleSettings: () => void }) {
   const t = useT();
-  const id = useCopy();
-  const password = useCopy();
   const methods = overview.settings.methods;
+  const status = overview.hostStatus;
   return (
-    <section className="card">
-      <h2>{t("thisDevice")}</h2>
-      <label className="field-label">{t("yourId")}</label>
-      <div className="value-row">
-        <code className="big-value">{overview.id}</code>
-        <button type="button" className="secondary" onClick={() => id.copy(overview.id)}>
-          {id.copied ? t("copied") : t("copy")}
+    <aside className="sidebar">
+      <div className="brand">
+        <BrandMark size={40} />
+        <div className="brand-text">
+          <h1 className="title-large">{t("appName")}</h1>
+          <span className="label-small">{t("publisher")}</span>
+        </div>
+      </div>
+      <h2 className="title-small section-title">{t("thisDevice")}</h2>
+      <CopyCard icon="desktop" title={t("yourId")} value={overview.id} />
+      {methods.oneTimePassword && (
+        <CopyCard
+          icon="key"
+          title={t("oneTimePassword")}
+          value={overview.oneTimePassword}
+          action={{
+            label: t("newPassword"),
+            onClick: () => api.rotateOneTimePassword().then(onOverview).catch(() => undefined),
+          }}
+        />
+      )}
+      <div className="sidebar-spacer" />
+      {overview.platform === "macos" && <p className="body-small sidebar-hint">{t("permissionHintMac")}</p>}
+      <div className="user-bar">
+        <span className={`status-dot status-${status.state}`} />
+        <span className="user-bar-status" title={statusText(status, t)}>
+          {statusText(status, t)}
+        </span>
+        <button
+          type="button"
+          className={settingsOpen ? "pill active" : "pill"}
+          onClick={onToggleSettings}
+          title={t("tabSettings")}
+          aria-label={t("tabSettings")}
+          aria-pressed={settingsOpen}
+        >
+          <Icon name="settings" size={22} />
         </button>
       </div>
-      {methods.oneTimePassword && (
-        <>
-          <label className="field-label">{t("oneTimePassword")}</label>
-          <div className="value-row">
-            <code className="big-value">{overview.oneTimePassword}</code>
-            <button type="button" className="secondary" onClick={() => password.copy(overview.oneTimePassword)}>
-              {password.copied ? t("copied") : t("copy")}
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => api.rotateOneTimePassword().then(onOverview).catch(() => undefined)}
-            >
-              {t("newPassword")}
-            </button>
-          </div>
-        </>
-      )}
-      <StatusLine status={overview.hostStatus} />
-      {overview.platform === "macos" && <p className="hint">{t("permissionHintMac")}</p>}
-    </section>
+    </aside>
   );
 }
 
-function RemoteDevice() {
+function ConnectPanel() {
   const t = useT();
   const errorText = useErrorText();
   const [target, setTarget] = useState("");
@@ -127,40 +168,46 @@ function RemoteDevice() {
   };
 
   return (
-    <section className="card">
-      <h2>{t("remoteDevice")}</h2>
-      <form onSubmit={submit} className="form">
-        <label className="field-label" htmlFor="remote-id">
-          {t("remoteId")}
-        </label>
-        <input
-          id="remote-id"
-          value={target}
-          onChange={(event) => setTarget(event.target.value)}
-          placeholder={t("remoteIdPlaceholder")}
-          autoComplete="off"
-          spellCheck={false}
-          disabled={phase !== "idle"}
-        />
-        <label className="field-label" htmlFor="remote-password">
-          {t("passwordOptional")}
-        </label>
-        <input
-          id="remote-password"
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          autoComplete="off"
-          disabled={phase !== "idle"}
-        />
-        <button type="submit" className="primary" disabled={phase !== "idle" || target.trim() === ""}>
-          {phase === "idle" ? t("connect") : t("connecting")}
-        </button>
-      </form>
-      {phase === "pending" && <p className="notice">{t("waitingApproval")}</p>}
-      {message && <p className="notice">{message}</p>}
-      {error && <p className="error">{errorText(error)}</p>}
-    </section>
+    <div className="home">
+      <div className="home-inner">
+        <div className="hero">
+          <BrandMark size={96} />
+          <div className="hero-text">
+            <h2 className="title-large">{t("remoteDevice")}</h2>
+            <p>{t("connectHint")}</p>
+          </div>
+        </div>
+        <form onSubmit={submit} className="form">
+          <input
+            className="field mono"
+            value={target}
+            onChange={(event) => setTarget(event.target.value)}
+            placeholder={t("remoteIdPlaceholder")}
+            aria-label={t("remoteId")}
+            autoComplete="off"
+            spellCheck={false}
+            autoFocus
+            disabled={phase !== "idle"}
+          />
+          <input
+            className="field"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder={t("passwordOptional")}
+            aria-label={t("passwordOptional")}
+            autoComplete="off"
+            disabled={phase !== "idle"}
+          />
+          <button type="submit" className="button filled" disabled={phase !== "idle" || target.trim() === ""}>
+            {phase === "idle" ? t("connect") : t("connecting")}
+          </button>
+        </form>
+        {phase === "pending" && <p className="message">{t("waitingApproval")}</p>}
+        {message && <p className="message">{message}</p>}
+        {error && <p className="message error">{errorText(error)}</p>}
+      </div>
+    </div>
   );
 }
 
@@ -173,17 +220,20 @@ function AccessDialog({ request, onClose }: { request: AccessRequestEvent; onClo
   return (
     <div className="overlay" role="dialog" aria-modal="true">
       <div className="dialog">
-        <h2>{t("incomingTitle")}</h2>
+        <span className="dialog-icon">
+          <BrandMark size={44} />
+        </span>
+        <h2 className="title-large">{t("incomingTitle")}</h2>
         <p>{t("incomingBody", { peer: request.peerId })}</p>
         <label className="check">
           <input type="checkbox" checked={trust} onChange={(event) => setTrust(event.target.checked)} />
           {t("trustDevice")}
         </label>
-        <div className="actions">
-          <button type="button" className="secondary" onClick={() => respond(false)}>
+        <div className="dialog-actions">
+          <button type="button" className="button text" onClick={() => respond(false)}>
             {t("reject")}
           </button>
-          <button type="button" className="primary" onClick={() => respond(true)} autoFocus>
+          <button type="button" className="button filled small" onClick={() => respond(true)} autoFocus>
             {t("accept")}
           </button>
         </div>
@@ -192,7 +242,7 @@ function AccessDialog({ request, onClose }: { request: AccessRequestEvent; onClo
   );
 }
 
-function SettingsPage({ overview, onOverview }: Props) {
+function SettingsPage({ overview, onOverview, onClose }: Props & { onClose: () => void }) {
   const t = useT();
   const errorText = useErrorText();
   const settings = overview.settings;
@@ -216,101 +266,188 @@ function SettingsPage({ overview, onOverview }: Props) {
       .catch((reason) => setError(asUiError(reason)));
   };
 
+  const usesDefaultServer =
+    serverAddress.trim() === settings.defaultServerAddress && serverKey.trim() === settings.defaultServerKey;
+  const [advancedOpen, setAdvancedOpen] = useState(
+    settings.serverAddress !== settings.defaultServerAddress || settings.serverKey !== settings.defaultServerKey,
+  );
+
   const toggle = (name: keyof Methods) => setMethods({ ...methods, [name]: !methods[name] });
 
   return (
     <div className="settings">
-      <section className="card">
-        <h2>{t("settingsServer")}</h2>
-        <label className="field-label" htmlFor="server-address">
-          {t("serverAddress")}
-        </label>
-        <input
-          id="server-address"
-          value={serverAddress}
-          onChange={(event) => setServerAddress(event.target.value)}
-          placeholder={t("serverAddressHint")}
-          spellCheck={false}
-        />
-        <label className="field-label" htmlFor="server-key">
-          {t("serverKey")}
-        </label>
-        <input
-          id="server-key"
-          value={serverKey}
-          onChange={(event) => setServerKey(event.target.value)}
-          placeholder={t("serverKeyHint")}
-          spellCheck={false}
-        />
-      </section>
-      <section className="card">
-        <h2>{t("settingsAccess")}</h2>
-        {(
-          [
-            ["acceptPrompt", t("methodPrompt")],
-            ["oneTimePassword", t("methodOneTime")],
-            ["permanentPassword", t("methodPermanent")],
-            ["trustedDevices", t("methodTrusted")],
-          ] as const
-        ).map(([name, label]) => (
-          <label key={name} className="check">
-            <input type="checkbox" checked={methods[name]} onChange={() => toggle(name)} />
-            {label}
-          </label>
-        ))}
-        <h3>{t("permanentPassword")}</h3>
-        <p className="hint">{settings.hasPermanentPassword ? t("permanentSet") : t("permanentNotSet")}</p>
-        <div className="value-row">
-          <input
-            type="password"
-            value={permanent}
-            onChange={(event) => setPermanent(event.target.value)}
-            autoComplete="new-password"
-          />
-          <button
-            type="button"
-            className="secondary"
-            disabled={permanent === ""}
-            onClick={() => run(api.setPermanentPassword(permanent), () => setPermanent(""))}
-          >
-            {t("setPassword")}
-          </button>
-          {settings.hasPermanentPassword && (
-            <button type="button" className="secondary" onClick={() => run(api.setPermanentPassword(null))}>
-              {t("removePassword")}
-            </button>
-          )}
-        </div>
-        <h3>{t("trustedDevices")}</h3>
-        {settings.trustedDevices.length === 0 ? (
-          <p className="hint">{t("noTrustedDevices")}</p>
-        ) : (
-          <ul className="devices">
-            {settings.trustedDevices.map((device) => (
-              <li key={device.key}>
-                <code>{device.id}</code>
-                <button type="button" className="secondary" onClick={() => run(api.forgetDevice(device.key))}>
-                  {t("remove")}
-                </button>
-              </li>
+      <header className="settings-header">
+        <button type="button" className="pill" onClick={onClose} title={t("back")} aria-label={t("back")}>
+          <Icon name="back" size={22} />
+        </button>
+        <h2 className="title-large">{t("tabSettings")}</h2>
+      </header>
+      <div className="settings-scroll">
+        <div className="settings-body">
+          <h3 className="title-small group-title">{t("settingsAccess")}</h3>
+          <div className="group">
+            {(
+              [
+                ["acceptPrompt", t("methodPrompt")],
+                ["oneTimePassword", t("methodOneTime")],
+                ["permanentPassword", t("methodPermanent")],
+                ["trustedDevices", t("methodTrusted")],
+              ] as const
+            ).map(([name, label]) => (
+              <button
+                key={name}
+                type="button"
+                className="row"
+                role="switch"
+                aria-checked={methods[name]}
+                onClick={() => toggle(name)}
+              >
+                <span className="row-text">
+                  <span className="row-title">{label}</span>
+                </span>
+                <span className={methods[name] ? "switch on" : "switch"} />
+              </button>
             ))}
-          </ul>
-        )}
-      </section>
-      <section className="card">
-        <h2>{t("settingsLanguage")}</h2>
-        <select value={language} onChange={(event) => setLanguage(event.target.value)}>
-          <option value="auto">{t("languageAuto")}</option>
-          <option value="en">{t("languageEnglish")}</option>
-          <option value="tr">{t("languageTurkish")}</option>
-        </select>
-      </section>
-      <div className="actions">
-        {saved && <span className="notice">{t("saved")}</span>}
-        {error && <span className="error">{errorText(error)}</span>}
+          </div>
+
+          <h3 className="title-small group-title">{t("permanentPassword")}</h3>
+          <div className="group">
+            <div className="row">
+              <span className="row-text">
+                <span className="label-small">
+                  {settings.hasPermanentPassword ? t("permanentSet") : t("permanentNotSet")}
+                </span>
+                <input
+                  className="row-input"
+                  type="password"
+                  value={permanent}
+                  onChange={(event) => setPermanent(event.target.value)}
+                  placeholder={t("password")}
+                  autoComplete="new-password"
+                />
+              </span>
+              {settings.hasPermanentPassword && (
+                <button type="button" className="button text" onClick={() => run(api.setPermanentPassword(null))}>
+                  {t("removePassword")}
+                </button>
+              )}
+              <button
+                type="button"
+                className="button tonal small"
+                disabled={permanent === ""}
+                onClick={() => run(api.setPermanentPassword(permanent), () => setPermanent(""))}
+              >
+                {t("setPassword")}
+              </button>
+            </div>
+          </div>
+
+          <h3 className="title-small group-title">{t("trustedDevices")}</h3>
+          <div className="group">
+            {settings.trustedDevices.length === 0 ? (
+              <div className="row">
+                <span className="body-small">{t("noTrustedDevices")}</span>
+              </div>
+            ) : (
+              settings.trustedDevices.map((device) => (
+                <div key={device.key} className="row">
+                  <Icon name="desktop" />
+                  <span className="row-text">
+                    <span className="row-title mono">{device.id}</span>
+                  </span>
+                  <button type="button" className="button text" onClick={() => run(api.forgetDevice(device.key))}>
+                    {t("remove")}
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+
+          <h3 className="title-small group-title">{t("settingsLanguage")}</h3>
+          <div className="group">
+            <label className="row">
+              <span className="row-text">
+                <span className="row-title">{t("settingsLanguage")}</span>
+              </span>
+              <select className="row-select" value={language} onChange={(event) => setLanguage(event.target.value)}>
+                <option value="auto">{t("languageAuto")}</option>
+                <option value="en">{t("languageEnglish")}</option>
+                <option value="tr">{t("languageTurkish")}</option>
+              </select>
+            </label>
+          </div>
+          <h3 className="title-small group-title">{t("settingsAdvanced")}</h3>
+          <div className="group">
+            <button
+              type="button"
+              className="row"
+              aria-expanded={advancedOpen}
+              onClick={() => setAdvancedOpen(!advancedOpen)}
+            >
+              <span className="row-text">
+                <span className="row-title">{t("settingsServer")}</span>
+                <span className="body-small">{t("serverAdvancedHint")}</span>
+              </span>
+              <span className={advancedOpen ? "chevron open" : "chevron"}>
+                <Icon name="expand" size={24} />
+              </span>
+            </button>
+            {advancedOpen && (
+              <>
+                <label className="row">
+                  <span className="row-text">
+                    <span className="label-small">{t("serverAddress")}</span>
+                    <input
+                      className="row-input mono"
+                      value={serverAddress}
+                      onChange={(event) => setServerAddress(event.target.value)}
+                      placeholder={t("serverAddressHint")}
+                      spellCheck={false}
+                    />
+                  </span>
+                </label>
+                <label className="row">
+                  <span className="row-text">
+                    <span className="label-small">{t("serverKey")}</span>
+                    <input
+                      className="row-input mono"
+                      value={serverKey}
+                      onChange={(event) => setServerKey(event.target.value)}
+                      placeholder={t("serverKeyHint")}
+                      spellCheck={false}
+                    />
+                  </span>
+                </label>
+                <div className="row">
+                  <span className="row-text">
+                    <span className="body-small">
+                      {usesDefaultServer ? t("serverIsDefault") : t("serverIsCustom")}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className="button tonal small"
+                    disabled={usesDefaultServer}
+                    onClick={() => {
+                      setServerAddress(settings.defaultServerAddress);
+                      setServerKey(settings.defaultServerKey);
+                    }}
+                  >
+                    {t("resetServer")}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          <p className="body-small footnote">{t("encryptionNote")}</p>
+        </div>
+      </div>
+      <div className="settings-actions">
+        {saved && <span className="body-small">{t("saved")}</span>}
+        {error && <span className="body-small error">{errorText(error)}</span>}
         <button
           type="button"
-          className="primary"
+          className="button filled small"
           onClick={() => run(api.saveSettings({ serverAddress, serverKey, methods, language }))}
         >
           {t("save")}
@@ -322,7 +459,7 @@ function SettingsPage({ overview, onOverview }: Props) {
 
 export function MainWindow({ overview, onOverview }: Props) {
   const t = useT();
-  const [tab, setTab] = useState<"home" | "settings">("home");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [requests, setRequests] = useState<AccessRequestEvent[]>([]);
   const [sessions, setSessions] = useState<HostSessionEvent[]>([]);
 
@@ -350,36 +487,36 @@ export function MainWindow({ overview, onOverview }: Props) {
   }, []);
 
   return (
-    <div className="main">
-      <header className="topbar">
-        <h1>{t("appName")}</h1>
-        <nav>
-          <button type="button" className={tab === "home" ? "tab active" : "tab"} onClick={() => setTab("home")}>
-            {t("tabHome")}
-          </button>
-          <button
-            type="button"
-            className={tab === "settings" ? "tab active" : "tab"}
-            onClick={() => setTab("settings")}
-          >
-            {t("tabSettings")}
-          </button>
-        </nav>
-      </header>
-      {sessions.map((session) => (
-        <div key={session.peerId} className="banner">
-          {t("beingControlled", { peer: session.peerId })}
-          {session.inputError && <span> · {t("viewOnly", { reason: session.inputError })}</span>}
-        </div>
-      ))}
-      {tab === "home" ? (
-        <div className="columns">
-          <ThisDevice overview={overview} onOverview={onOverview} />
-          <RemoteDevice />
-        </div>
-      ) : (
-        <SettingsPage overview={overview} onOverview={onOverview} />
-      )}
+    <div className="app">
+      <Sidebar
+        overview={overview}
+        onOverview={onOverview}
+        settingsOpen={settingsOpen}
+        onToggleSettings={() => setSettingsOpen(!settingsOpen)}
+      />
+      <main className="content">
+        {sessions.length > 0 && (
+          <div className="banners">
+            {sessions.map((session) => (
+              <div key={session.peerId} className="banner">
+                <span className="status-dot status-online" />
+                <span>
+                  {t("beingControlled", { peer: session.peerId })}
+                  {session.inputError && <> · {t("viewOnly", { reason: session.inputError })}</>}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        {settingsOpen ? (
+          <SettingsPage overview={overview} onOverview={onOverview} onClose={() => setSettingsOpen(false)} />
+        ) : (
+          <>
+            <ConnectPanel />
+            <p className="body-small footnote">{t("encryptionNote")}</p>
+          </>
+        )}
+      </main>
       {requests[0] && (
         <AccessDialog
           key={requests[0].requestId}

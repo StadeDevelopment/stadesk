@@ -168,6 +168,7 @@ pub async fn connect_to(
     .title(format!("StaDesk — {target}"))
     .inner_size(1280.0, 800.0)
     .min_inner_size(480.0, 320.0)
+    .maximized(true)
     .build();
     if let Err(error) = opened {
         disconnect_session(&app, session_id).await;

@@ -4,6 +4,7 @@ import { api } from "./api";
 import { useT } from "./i18n";
 import { InputQueue, buttonName, containedBox, toImagePixel, wheelSteps } from "./input";
 import { parseStreamMessage, StreamPlayer, type PlayerStatus } from "./video";
+import { BrandMark, Icon } from "./icons";
 
 export function ViewerWindow({ sessionId }: { sessionId: number }) {
   const t = useT();
@@ -123,11 +124,24 @@ export function ViewerWindow({ sessionId }: { sessionId: number }) {
   return (
     <div className="viewer">
       <div className="viewer-bar">
-        <button type="button" className="secondary" onClick={toggleFullscreen}>
-          {fullscreen ? t("exitFullscreen") : t("fullscreen")}
+        <BrandMark size={22} />
+        <button
+          type="button"
+          className="pill"
+          onClick={toggleFullscreen}
+          title={fullscreen ? t("exitFullscreen") : t("fullscreen")}
+          aria-label={fullscreen ? t("exitFullscreen") : t("fullscreen")}
+        >
+          <Icon name={fullscreen ? "fullscreenExit" : "fullscreen"} size={22} />
         </button>
-        <button type="button" className="danger" onClick={() => api.disconnect(sessionId).catch(() => undefined)}>
-          {t("disconnect")}
+        <button
+          type="button"
+          className="pill danger"
+          onClick={() => api.disconnect(sessionId).catch(() => undefined)}
+          title={t("disconnect")}
+          aria-label={t("disconnect")}
+        >
+          <Icon name="close" size={22} />
         </button>
       </div>
       <canvas ref={canvas} className="screen" tabIndex={0} />

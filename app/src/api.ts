@@ -23,6 +23,8 @@ export type Settings = {
   hasPermanentPassword: boolean;
   trustedDevices: TrustedDevice[];
   language: string;
+  defaultServerAddress: string;
+  defaultServerKey: string;
 };
 
 export type Overview = {

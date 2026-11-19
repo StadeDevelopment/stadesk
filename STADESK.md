@@ -394,6 +394,7 @@ crates/stadesk-codec   VP9 encoder/decoder over libvpx, BGRA ↔ I420 conversion
 crates/stadesk-desktop screen capture and remote input for macOS, Windows, Linux X11 and Wayland
 crates/stadesk-session host and viewer sessions, connection set-up, host service
 app/                   Tauri desktop application
+assets/logo/           StaDesk icon source (SVG); app icons in app/src-tauri/icons are generated from it with `tauri icon`
 tools/linux/           Linux test and packaging image, Wayland, portal and app test scripts, deb packaging
 tools/macos/           signed release build, Developer ID certificate import
 tools/windows/         libvpx for mingw, cross-build wrapper, app packaging, server installer

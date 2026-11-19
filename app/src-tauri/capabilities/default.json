@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "Core APIs for the main window and remote session windows",
+  "windows": ["main", "viewer-*"],
+  "permissions": ["core:default"]
+}

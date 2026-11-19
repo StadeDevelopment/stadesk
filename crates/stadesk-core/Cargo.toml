@@ -1,0 +1,20 @@
+[package]
+name = "stadesk-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+argon2 = { version = "0.6.0", default-features = false, features = ["alloc", "zeroize"] }
+blake2 = "0.11.0"
+chacha20poly1305 = { version = "0.11.0", features = ["zeroize"] }
+ed25519-dalek = "3.0.0"
+getrandom = "0.4.3"
+hkdf = "0.13.0"
+ml-dsa = { version = "0.1.2", features = ["zeroize"] }
+ml-kem = { version = "0.3.4", features = ["getrandom", "zeroize"] }
+subtle = "2.6.1"
+thiserror = "2.0.21"
+x25519-dalek = { version = "3.0.0", features = ["getrandom"] }
+zeroize = "1.9.2"

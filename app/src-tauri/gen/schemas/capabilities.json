@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Core APIs for the main window and remote session windows","local":true,"windows":["main","viewer-*"],"permissions":["core:default"]}}

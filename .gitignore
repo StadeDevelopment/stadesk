@@ -1,0 +1,8 @@
+target/
+.DS_Store
+node_modules/
+app/dist/
+*.p12
+*.p8
+*.pfx
+signing.env

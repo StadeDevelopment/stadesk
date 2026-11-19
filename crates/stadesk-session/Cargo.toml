@@ -1,0 +1,20 @@
+[package]
+name = "stadesk-session"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+quinn = { version = "0.11.12", default-features = false, features = ["runtime-tokio", "rustls-ring", "log"] }
+stadesk-codec = { version = "0.1.0", path = "../stadesk-codec" }
+stadesk-core = { version = "0.1.0", path = "../stadesk-core" }
+stadesk-desktop = { version = "0.1.0", path = "../stadesk-desktop" }
+stadesk-net = { version = "0.1.0", path = "../stadesk-net" }
+thiserror = "2.0.21"
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "sync", "time", "macros"] }
+
+[dev-dependencies]
+stadesk-codec = { path = "../stadesk-codec" }
+stadesk-server = { path = "../stadesk-server" }
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "time"] }

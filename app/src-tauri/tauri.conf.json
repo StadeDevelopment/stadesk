@@ -1,7 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "StaDesk",
-  "version": "0.1.0",
   "identifier": "dev.stade.stadesk",
   "build": {
     "frontendDist": "../dist",
@@ -48,6 +47,18 @@
     },
     "shortDescription": "Secure remote desktop by Stade Development",
     "category": "Utility",
-    "publisher": "Stade Development"
+    "publisher": "Stade Development",
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlEODhERjM4Q0E3NkZGMDEKUldRQi8zYktPTitJblJXaTdXalVaVCtwbGcxVGdKYTlZeUJ4TE9CV2dHWUpmRTBjai9kME1NaFcK",
+      "endpoints": [
+        "https://github.com/StadeDevelopment/stadesk/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

@@ -90,5 +90,10 @@
   "serverAdvancedHint": "Change only if you run your own StaDesk server.",
   "serverIsDefault": "Using the StaDesk server.",
   "serverIsCustom": "Using a custom server.",
-  "resetServer": "Restore default"
+  "resetServer": "Restore default",
+  "updateAvailable": "StaDesk {version} is ready",
+  "updateInstall": "Update and restart",
+  "updateInstalling": "Updating…",
+  "error.updateFailed": "The update could not be installed: {detail}",
+  "error.noUpdate": "There is no update to install."
 }

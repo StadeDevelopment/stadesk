@@ -36,6 +36,7 @@ pub struct Overview {
     host_status: HostStatusView,
     settings: SettingsView,
     platform: &'static str,
+    version: &'static str,
 }
 
 fn platform() -> &'static str {
@@ -76,6 +77,7 @@ fn overview(state: &AppState) -> Overview {
             default_server_key: crate::config::DEFAULT_SERVER_KEY,
         },
         platform: platform(),
+        version: env!("CARGO_PKG_VERSION"),
     }
 }
 

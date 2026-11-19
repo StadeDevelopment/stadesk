@@ -90,5 +90,10 @@
   "serverAdvancedHint": "Yalnızca kendi StaDesk sunucunu kullanacaksan değiştir.",
   "serverIsDefault": "StaDesk sunucusu kullanılıyor.",
   "serverIsCustom": "Özel bir sunucu kullanılıyor.",
-  "resetServer": "Varsayılana dön"
+  "resetServer": "Varsayılana dön",
+  "updateAvailable": "StaDesk {version} hazır",
+  "updateInstall": "Güncelle ve yeniden başlat",
+  "updateInstalling": "Güncelleniyor…",
+  "error.updateFailed": "Güncelleme yüklenemedi: {detail}",
+  "error.noUpdate": "Yüklenecek bir güncelleme yok."
 }

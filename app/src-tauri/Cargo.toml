@@ -15,6 +15,7 @@ stadesk-desktop = { version = "0.1.0", path = "../../crates/stadesk-desktop" }
 stadesk-net = { version = "0.1.0", path = "../../crates/stadesk-net" }
 stadesk-session = { version = "0.1.0", path = "../../crates/stadesk-session" }
 tauri = { version = "2.12.7", features = [] }
+tauri-plugin-updater = "2.14.1"
 tokio = { version = "1.54.1", features = ["rt-multi-thread", "sync", "time", "macros", "net"] }
 
 [build-dependencies]

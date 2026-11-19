@@ -35,15 +35,15 @@ cargo test --workspace
 cd app && npm ci && npm run tauri build
 ```
 
-Release packages:
+Releases are built by GitHub Actions: push a tag `vX.Y.Z` that matches the workspace version and `.github/workflows/release.yml` publishes a release with the macOS `.dmg`, the Windows installer, the Linux `.deb` and `.AppImage`, and the update manifest. The same packages can be built locally:
 
-| Platform | Command | Output |
-|---|---|---|
-| macOS | `tools/macos/release.sh` | `target/release/bundle/dmg/StaDesk_<version>_aarch64.dmg` |
-| Windows (cross-built on macOS with `mingw-w64` and `nasm`) | `tools/windows/package.sh` | `target/dist/StaDesk-windows-x64.zip` |
-| Linux (inside the `tools/linux` Docker image) | `tools/linux/package.sh deb` | `target/dist/linux/*.deb` |
+| Platform | Command |
+|---|---|
+| macOS | `tools/macos/release.sh` |
+| Windows (cross-built with `mingw-w64`, `nasm` and `makensis`) | `tools/windows/package.sh` |
+| Linux (inside the `tools/linux` Docker image) | `tools/linux/package.sh deb` |
 
-Signing settings for macOS are read from `~/.stadesk/signing.env` (mode 600), never from the repository.
+Updater artifacts are signed when `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` are set. Signing settings for macOS are read from `~/.stadesk/signing.env` (mode 600), never from the repository.
 
 ## Running a server
 

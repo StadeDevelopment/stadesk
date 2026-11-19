@@ -1,17 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-root="$(cd "$(dirname "$0")/../.." && pwd)"
+. "$(dirname "$0")/env.sh"
+makensis="$(command -v makensis)"
+nsis_data="$(cd "$(dirname "$(realpath "$makensis")")/../share/nsis" && pwd)"
+wrappers="$root/target/windows-deps/bin"
+mkdir -p "$wrappers"
+printf '#!/bin/sh\nNSISDIR="%s" exec "%s" "$@"\n' "$nsis_data" "$makensis" > "$wrappers/makensis"
+chmod +x "$wrappers/makensis"
+export PATH="$wrappers:$PATH"
 cd "$root/app"
-npm run -s build
-"$root/tools/windows/cargo.sh" build --release -p stadesk-app --features tauri/custom-protocol
-release="$root/target/x86_64-pc-windows-gnu/release"
-stage="$root/target/dist/StaDesk-windows-x64"
-rm -rf "$stage"
-mkdir -p "$stage"
-x86_64-w64-mingw32-strip -o "$stage/StaDesk.exe" "$release/stadesk-app.exe"
-cp "$release/WebView2Loader.dll" "$stage/"
-cd "$root/target/dist"
-rm -f StaDesk-windows-x64.zip
-zip -qr StaDesk-windows-x64.zip StaDesk-windows-x64
-echo "$root/target/dist/StaDesk-windows-x64.zip"
+npm run tauri build -- --target x86_64-pc-windows-gnu --bundles nsis
+find "$root/target/x86_64-pc-windows-gnu/release/bundle/nsis" -name '*-setup.exe*'

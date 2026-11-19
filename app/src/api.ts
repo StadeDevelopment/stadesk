@@ -33,7 +33,10 @@ export type Overview = {
   hostStatus: HostStatus;
   settings: Settings;
   platform: "macos" | "windows" | "linux";
+  version: string;
 };
+
+export type UpdateInfo = { version: string };
 
 export type UiError = { code: string; detail?: string | null };
 
@@ -68,6 +71,8 @@ export const api = {
   sendInput: (sessionId: number, events: InputMessage[]) => invoke<void>("send_input", { sessionId, events }),
   requestKeyframe: (sessionId: number) => invoke<void>("request_keyframe", { sessionId }),
   disconnect: (sessionId: number) => invoke<void>("disconnect", { sessionId }),
+  update: () => invoke<UpdateInfo | null>("get_update"),
+  installUpdate: () => invoke<void>("install_update"),
 };
 
 export type AccessRequestEvent = { requestId: number; peerId: string };
@@ -86,6 +91,8 @@ export const events = {
     listen<HostSessionEvent>("host-session", (event) => handler(event.payload)),
   connectPending: (handler: (peerId: string) => void): Promise<UnlistenFn> =>
     listen<string>("connect-pending", (event) => handler(event.payload)),
+  updateAvailable: (handler: (update: UpdateInfo) => void): Promise<UnlistenFn> =>
+    listen<UpdateInfo>("update-available", (event) => handler(event.payload)),
   viewerEnded: (handler: (ended: ViewerEndedEvent) => void): Promise<UnlistenFn> =>
     listen<ViewerEndedEvent>("viewer-ended", (event) => handler(event.payload)),
 };

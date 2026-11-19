@@ -9,6 +9,7 @@ import {
   type Methods,
   type Overview,
   type UiError,
+  type UpdateInfo,
 } from "./api";
 import { useErrorText, useT } from "./i18n";
 import { BrandMark, Icon, type IconName } from "./icons";
@@ -70,6 +71,43 @@ function CopyCard({
   );
 }
 
+function UpdateCard() {
+  const t = useT();
+  const errorText = useErrorText();
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
+  const [installing, setInstalling] = useState(false);
+  const [error, setError] = useState<UiError | null>(null);
+
+  useEffect(() => {
+    api.update().then(setUpdate).catch(() => undefined);
+    const unlisten = events.updateAvailable(setUpdate);
+    return () => {
+      unlisten.then((stop) => stop());
+    };
+  }, []);
+
+  if (!update) {
+    return null;
+  }
+  const install = () => {
+    setInstalling(true);
+    setError(null);
+    api
+      .installUpdate()
+      .catch((reason) => setError(asUiError(reason)))
+      .finally(() => setInstalling(false));
+  };
+  return (
+    <div className="update-card">
+      <span className="title-small">{t("updateAvailable", { version: update.version })}</span>
+      {error && <span className="body-small">{errorText(error)}</span>}
+      <button type="button" className="button filled small" disabled={installing} onClick={install}>
+        {installing ? t("updateInstalling") : t("updateInstall")}
+      </button>
+    </div>
+  );
+}
+
 function Sidebar({
   overview,
   onOverview,
@@ -103,6 +141,7 @@ function Sidebar({
       )}
       <div className="sidebar-spacer" />
       {overview.platform === "macos" && <p className="body-small sidebar-hint">{t("permissionHintMac")}</p>}
+      <UpdateCard />
       <div className="user-bar">
         <span className={`status-dot status-${status.state}`} />
         <span className="user-bar-status" title={statusText(status, t)}>
@@ -439,7 +478,9 @@ function SettingsPage({ overview, onOverview, onClose }: Props & { onClose: () =
               </>
             )}
           </div>
-          <p className="body-small footnote">{t("encryptionNote")}</p>
+          <p className="body-small footnote">
+            {t("appName")} {overview.version} · {t("encryptionNote")}
+          </p>
         </div>
       </div>
       <div className="settings-actions">

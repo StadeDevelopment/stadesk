@@ -5,6 +5,7 @@ mod config;
 mod error;
 mod host;
 mod state;
+mod update;
 mod viewer;
 
 use stadesk_core::AccessGate;
@@ -29,6 +30,8 @@ fn startup_target() -> Option<String> {
 fn main() {
     let target = startup_target();
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(update::UpdateState::default())
         .setup(move |app| {
             let store = Store::new(app.path().app_data_dir()?)?;
             let identity = store.load_or_create_identity()?;
@@ -37,6 +40,7 @@ fn main() {
             config.apply_to(&mut gate);
             app.manage(AppState::new(store, identity, config, gate, target.clone()));
             tauri::async_runtime::spawn(host::restart(app.handle().clone()));
+            tauri::async_runtime::spawn(update::watch(app.handle().clone()));
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -57,6 +61,8 @@ fn main() {
             commands::forget_device,
             commands::respond_request,
             commands::take_startup_target,
+            update::get_update,
+            update::install_update,
             viewer::connect_to,
             viewer::attach_stream,
             viewer::send_input,

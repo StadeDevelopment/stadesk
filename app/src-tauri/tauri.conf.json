@@ -48,7 +48,8 @@
     "shortDescription": "Secure remote desktop by Stade Development",
     "category": "Utility",
     "publisher": "Stade Development",
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "license": "GPL-3.0-only"
   },
   "plugins": {
     "updater": {

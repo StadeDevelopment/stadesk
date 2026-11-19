@@ -1,6 +1,6 @@
 # StaDesk
 
-StaDesk is a free, privacy-first remote desktop application by Stade Development. Every session is end-to-end encrypted with **Stade Core**, the same post-quantum hybrid cryptography as Stade (X25519 + ML-KEM-768, Ed25519 + ML-DSA-65). The rendezvous and relay server never sees the screen, the keyboard or any password.
+StaDesk is a free and open-source, privacy-first remote desktop application by Stade Development. Every session is end-to-end encrypted with **Stade Core**, the same post-quantum hybrid cryptography as Stade (X25519 + ML-KEM-768, Ed25519 + ML-DSA-65). The rendezvous and relay server never sees the screen, the keyboard or any password.
 
 The architecture reference with every design decision is [STADESK.md](STADESK.md).
 
@@ -58,3 +58,7 @@ The server prints its **server key** on start. Users enter the server address an
 - macOS: allow StaDesk under System Settings → Privacy & Security → Screen Recording (to be viewed) and Accessibility (to be controlled).
 - Linux: WebKitGTK decodes video through GStreamer, so `gstreamer1.0-plugins-good` must be installed (the `.deb` depends on it). On Wayland the desktop asks for consent through its own dialog; remote control needs a desktop that offers the RemoteDesktop portal (GNOME, KDE).
 - Windows: needs the WebView2 runtime, which Windows 10 and 11 receive with Edge.
+
+## License
+
+StaDesk is free software, distributed under the [GNU General Public License v3.0](LICENSE).

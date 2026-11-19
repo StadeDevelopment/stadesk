@@ -13,6 +13,7 @@ use crate::config::{Config, Store, encode_hex};
 use crate::viewer::ViewerEntry;
 
 pub const DEFAULT_PORT: u16 = 21300;
+const PROBE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
 
 pub fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
@@ -146,16 +147,64 @@ pub async fn resolve_server(config: &Config) -> Result<ServerAddress, ServerProb
         .server_key
         .parse()
         .map_err(|_| ServerProblem::InvalidKey)?;
-    let mut candidates = tokio::net::lookup_host((host.as_str(), port))
+    let mut candidates: Vec<SocketAddr> = Vec::new();
+    for address in tokio::net::lookup_host((host.as_str(), port))
         .await
-        .map_err(|error| ServerProblem::Unresolved(error.to_string()))?;
-    let address = candidates
-        .next()
+        .map_err(|error| ServerProblem::Unresolved(error.to_string()))?
+    {
+        if !candidates.contains(&address) {
+            candidates.push(address);
+        }
+    }
+    let first = *candidates
+        .first()
         .ok_or_else(|| ServerProblem::Unresolved(host.clone()))?;
+    let address = if candidates.len() == 1 {
+        first
+    } else {
+        reachable_server(&candidates, fingerprint)
+            .await
+            .unwrap_or(first)
+    };
     Ok(ServerAddress {
         address,
         fingerprint,
     })
+}
+
+async fn probe_server(address: SocketAddr, fingerprint: ServerFingerprint) -> Option<SocketAddr> {
+    let endpoint = stadesk_net::bind_controller_endpoint(unspecified_for(&address)).ok()?;
+    let server = ServerAddress {
+        address,
+        fingerprint,
+    };
+    let connection = tokio::time::timeout(
+        PROBE_TIMEOUT,
+        stadesk_net::connect_server(&endpoint, &server),
+    )
+    .await
+    .ok()?
+    .ok()?;
+    connection.close(quinn::VarInt::from_u32(0), b"");
+    endpoint.wait_idle().await;
+    Some(address)
+}
+
+async fn reachable_server(
+    candidates: &[SocketAddr],
+    fingerprint: ServerFingerprint,
+) -> Option<SocketAddr> {
+    let mut probes = tokio::task::JoinSet::new();
+    for &address in candidates {
+        probes.spawn(probe_server(address, fingerprint));
+    }
+    while let Some(result) = probes.join_next().await {
+        if let Ok(Some(address)) = result {
+            probes.abort_all();
+            return Some(address);
+        }
+    }
+    None
 }
 
 pub fn unspecified_for(server: &SocketAddr) -> SocketAddr {

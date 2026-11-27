@@ -27,14 +27,25 @@ fn startup_target() -> Option<String> {
     None
 }
 
+fn identity_error(error: std::io::Error) -> std::io::Error {
+    let message = format!("StaDesk could not load or create its identity: {error}");
+    eprintln!("{message}");
+    rfd::MessageDialog::new()
+        .set_title("StaDesk")
+        .set_description(&message)
+        .set_level(rfd::MessageLevel::Error)
+        .show();
+    error
+}
+
 fn main() {
     let target = startup_target();
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(update::UpdateState::default())
         .setup(move |app| {
-            let store = Store::new(app.path().app_data_dir()?)?;
-            let identity = store.load_or_create_identity()?;
+            let store = Store::new(app.path().app_data_dir()?).map_err(identity_error)?;
+            let identity = store.load_or_create_identity().map_err(identity_error)?;
             let config = store.load_config();
             let mut gate = AccessGate::new(config.methods.into())?;
             config.apply_to(&mut gate);

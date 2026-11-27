@@ -150,17 +150,63 @@ impl Store {
 
     pub fn load_or_create_identity(&self) -> std::io::Result<stadesk_core::Identity> {
         let path = self.directory.join(IDENTITY_FILE);
-        if let Ok(bytes) = fs::read(&path) {
-            let seeds: [u8; IDENTITY_SEED_LEN] = bytes
-                .as_slice()
-                .try_into()
-                .map_err(|_| std::io::Error::other("the identity file is damaged"))?;
-            return Ok(stadesk_core::Identity::from_secret_seeds(&seeds));
+        match fs::read(&path) {
+            Ok(bytes) => return identity_from_bytes(&bytes),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                match fs::symlink_metadata(&path) {
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(error),
+                    Ok(_) => return identity_from_bytes(&fs::read(&path)?),
+                }
+            }
+            Err(error) => return Err(error),
         }
         let identity = stadesk_core::Identity::generate().map_err(std::io::Error::other)?;
-        write_atomically(&path, identity.secret_seeds().as_slice(), true)?;
-        Ok(identity)
+        let mut temporary = tempfile::Builder::new()
+            .prefix("identity-")
+            .tempfile_in(&self.directory)?;
+        if let Err(error) = temporary
+            .write_all(identity.secret_seeds().as_slice())
+            .and_then(|()| temporary.as_file().sync_all())
+        {
+            return match temporary.close() {
+                Ok(()) => Err(error),
+                Err(cleanup_error) => Err(std::io::Error::other(format!(
+                    "{error}; could not remove the temporary identity file: {cleanup_error}"
+                ))),
+            };
+        }
+        let temporary_path = temporary.path().to_owned();
+        match temporary.persist_noclobber(&path) {
+            Ok(_) => match fs::remove_file(&temporary_path) {
+                Ok(()) => Ok(identity),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(identity),
+                Err(error) => Err(std::io::Error::other(format!(
+                    "could not remove the temporary identity file: {error}"
+                ))),
+            },
+            Err(error) => {
+                let kind = error.error.kind();
+                let persist_error = error.error;
+                if let Err(cleanup_error) = error.file.close() {
+                    return Err(std::io::Error::other(format!(
+                        "{persist_error}; could not remove the temporary identity file: {cleanup_error}"
+                    )));
+                }
+                if kind == std::io::ErrorKind::AlreadyExists {
+                    return identity_from_bytes(&fs::read(&path)?);
+                }
+                Err(persist_error)
+            }
+        }
     }
+}
+
+fn identity_from_bytes(bytes: &[u8]) -> std::io::Result<stadesk_core::Identity> {
+    let seeds: [u8; IDENTITY_SEED_LEN] = bytes
+        .try_into()
+        .map_err(|_| std::io::Error::other("the identity file is damaged"))?;
+    Ok(stadesk_core::Identity::from_secret_seeds(&seeds))
 }
 
 #[cfg(test)]
@@ -240,6 +286,78 @@ mod tests {
         assert_eq!(store.load_config(), Config::default());
         fs::write(directory.join(IDENTITY_FILE), b"short").unwrap();
         assert!(store.load_or_create_identity().is_err());
+        assert_eq!(fs::read(directory.join(IDENTITY_FILE)).unwrap(), b"short");
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn unreadable_identity_is_not_replaced() {
+        let directory = temporary_directory();
+        let store = Store::new(directory.clone()).unwrap();
+        let path = directory.join(IDENTITY_FILE);
+        fs::create_dir(&path).unwrap();
+        assert!(store.load_or_create_identity().is_err());
+        assert!(path.is_dir());
+        assert_eq!(fs::read_dir(&directory).unwrap().count(), 1);
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn locked_identity_is_not_replaced() {
+        use std::os::windows::fs::OpenOptionsExt;
+
+        let directory = temporary_directory();
+        let store = Store::new(directory.clone()).unwrap();
+        let path = directory.join(IDENTITY_FILE);
+        let original = [42u8; IDENTITY_SEED_LEN];
+        fs::write(&path, original).unwrap();
+        let locked = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(0)
+            .open(&path)
+            .unwrap();
+        assert!(store.load_or_create_identity().is_err());
+        drop(locked);
+        assert_eq!(fs::read(&path).unwrap(), original);
+        assert_eq!(fs::read_dir(&directory).unwrap().count(), 1);
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn dangling_identity_symlink_is_not_replaced() {
+        let directory = temporary_directory();
+        let store = Store::new(directory.clone()).unwrap();
+        let path = directory.join(IDENTITY_FILE);
+        std::os::unix::fs::symlink("missing", &path).unwrap();
+        assert!(store.load_or_create_identity().is_err());
+        assert!(fs::symlink_metadata(path).unwrap().file_type().is_symlink());
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn concurrent_first_starts_use_one_identity() {
+        let directory = temporary_directory();
+        Store::new(directory.clone()).unwrap();
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(8));
+        let threads: Vec<_> = (0..8)
+            .map(|_| {
+                let directory = directory.clone();
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    let store = Store::new(directory).unwrap();
+                    barrier.wait();
+                    store.load_or_create_identity().unwrap().id()
+                })
+            })
+            .collect();
+        let ids: Vec<_> = threads
+            .into_iter()
+            .map(|thread| thread.join().unwrap())
+            .collect();
+        assert!(ids.iter().all(|id| *id == ids[0]));
+        assert_eq!(fs::read_dir(&directory).unwrap().count(), 1);
         fs::remove_dir_all(directory).unwrap();
     }
 }
